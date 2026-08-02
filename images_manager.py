@@ -28,6 +28,19 @@ def supprimer_image(nom_fichier):
     if os.path.exists(chemin):
         os.remove(chemin)
 
+
+def vider_images():
+
+    dossier = "images"
+
+    if not os.path.isdir(dossier):
+        return
+
+    for nom_fichier in os.listdir(dossier):
+        chemin = os.path.join(dossier, nom_fichier)
+        if os.path.isfile(chemin):
+            os.remove(chemin)
+
 def nettoyer_nom(texte):
 
     texte = unicodedata.normalize("NFD", texte)

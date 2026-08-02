@@ -14,6 +14,7 @@ def creer_base():
         auteur TEXT,
         description TEXT,
         genre TEXT,
+        date_parution TEXT,
         image TEXT,
         isbn
     )
@@ -31,13 +32,14 @@ def enregistrer_livre(livre):
     curseur = connexion.cursor()
 
     curseur.execute("""
-    INSERT INTO livres (titre, auteur, description, genre, image, isbn)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO livres (titre, auteur, description, genre, date_parution, image, isbn)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
         livre.titre,
         livre.auteur,
         livre.description,
         livre.genre,
+        livre.date_parution,
         livre.image,
         livre.isbn
     ))
@@ -66,7 +68,8 @@ def lister_livres():
             ligne[3],
             ligne[4],
             ligne[5],
-            ligne[6]
+            ligne[6],
+            ligne[7]
 
         )
 
@@ -125,19 +128,34 @@ def supprimer_livre(isbn):
     connexion.commit()
     connexion.close()
 
+
+def vider_bibliotheque():
+
+    connexion = sqlite3.connect("livres.db")
+
+    curseur = connexion.cursor()
+
+    curseur.execute("DELETE FROM livres")
+
+    connexion.commit()
+    connexion.close()
+
 def rechercher_dans_bibliotheque(recherche):
 
     connexion = sqlite3.connect("livres.db")
 
     curseur = connexion.cursor()
 
-    curseur.execute(
-        """
+    requete = """
         SELECT * FROM livres
         WHERE titre LIKE ?
-        """,
-        (f"%{recherche}%",)
-    )
+        OR auteur LIKE ?
+        OR genre LIKE ?
+        OR isbn LIKE ?
+        """
+
+    motif = f"%{recherche}%"
+    curseur.execute(requete, (motif, motif, motif, motif))
 
     resultats = curseur.fetchall()
 
@@ -153,7 +171,8 @@ def rechercher_dans_bibliotheque(recherche):
             ligne[3],
             ligne[4],
             ligne[5],
-            ligne[6]
+            ligne[6],
+            ligne[7]
         )
 
         livres.append(livre)
