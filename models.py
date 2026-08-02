@@ -15,8 +15,8 @@ class Livre:
     def afficher_details(self):
         print("Titre :", self.titre)
         print("Auteur :", self.auteur)
-        print("Genre :", self.genre)
-        print("Date de parution :", self.date_parution or "N/A")
-        print("ISBN :", self.isbn)
-        print("Description :", self.description)
-        print("Image :", self.image)
+        print("Genre :", self.genre or "Genre non repertorie")
+        print("Date de parution :", self.date_parution or "Date inconnu")
+        print("ISBN :", self.isbn or "ISBN non repertorié")
+        print("Description :", self.description or "Description non repertorié")
+        print("Image :", self.image or "img non repertorie")

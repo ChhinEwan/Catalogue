@@ -21,7 +21,7 @@ def afficher_liste_livres(livres, titre):
     afficher_entete(titre)
     for numero, livre in enumerate(livres, start=1):
         print(f"{numero}. {livre.titre}")
-        print(f"   Auteur : {livre.auteur} | Date : {livre.date_parution or 'N/A'} | Genre : {livre.genre or 'Inconnu'}")
+        print(f"   Auteur : {livre.auteur} | Date : {livre.date_parution or 'Date inconnu'} | Genre : {livre.genre or 'Genre non repertorie'}")
         afficher_separator()
 
 
@@ -29,8 +29,8 @@ def afficher_resultats_recherche(livres):
     afficher_entete("Résultats de la recherche")
     for numero, livre in enumerate(livres, start=1):
         print(f"{numero}. {livre.titre} — {livre.auteur}")
-        print(f"   Date : {livre.date_parution or 'N/A'} | Genre : {livre.genre or 'Inconnu'}")
-        print(f"   ISBN : {livre.isbn or 'N/A'}")
+        print(f"   Date : {livre.date_parution or 'Date inconnu'} | Genre : {livre.genre or 'Genre non repertorie'}")
+        print(f"   ISBN : {livre.isbn or 'ISBN non repertorié'}")
         afficher_separator()
 
 

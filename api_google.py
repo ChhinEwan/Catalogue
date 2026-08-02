@@ -58,15 +58,20 @@ def normaliser_genres(categories):
     resultats = []
     for cat in categories:
         cat_norm = GENRE_FR.get(cat)
-        if not cat_norm and "comics" in cat.lower():
-            cat_norm = "Bande dessinée"
+        if not cat_norm and "comic" in cat.lower():
+            cat_norm = "Bandes dessinées"
         resultats.append(cat_norm or cat)
     return ", ".join(resultats)
 
 
-def _rechercher_livre_langue(titre, langue):
+def _rechercher_livre_langue(titre, langue, start_index=0, max_results=20):
     url = "https://www.googleapis.com/books/v1/volumes"
-    params = {"q": titre, "maxResults": 20, "langRestrict": langue}
+    params = {
+        "q": titre,
+        "maxResults": max_results,
+        "startIndex": start_index,
+        "langRestrict": langue
+    }
     if API_KEY:
         params["key"] = API_KEY
 
@@ -110,8 +115,9 @@ def _rechercher_livre_langue(titre, langue):
 
         raise RuntimeError(f"Google Books API : {message} (code {response.status_code})")
 
+    total_items = data.get("totalItems", 0) if isinstance(data, dict) else 0
     if "items" not in data:
-        return []
+        return [], total_items
 
     livres = []
 
@@ -151,7 +157,7 @@ def _rechercher_livre_langue(titre, langue):
 
         livres.append(livre)
 
-    return livres
+    return livres, total_items
 
 
 def _fusionner_livres(livres):
@@ -168,11 +174,13 @@ def _fusionner_livres(livres):
     return result
 
 
-def rechercher_livre(titre):
+def rechercher_livre(titre, start_index=0, return_total=False, max_results=20):
     titre = (titre or "").strip()
     if not titre:
-        return []
+        return [] if not return_total else ([], 0)
 
-    livres_fr = _rechercher_livre_langue(titre, "fr")
-    livres_en = _rechercher_livre_langue(titre, "en")
-    return _fusionner_livres(livres_fr + livres_en)
+    livres_fr, total_items = _rechercher_livre_langue(titre, "fr", start_index=start_index, max_results=max_results)
+    livres_fr = _fusionner_livres(livres_fr)
+    if return_total:
+        return livres_fr, total_items
+    return livres_fr

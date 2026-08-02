@@ -25,7 +25,7 @@ def exporter_excel(livres):
 
     genres = {}
     for livre in livres:
-        genre = livre.genre or "Inconnu"
+        genre = livre.genre or "Genre non repertorié"
         genres[genre] = genres.get(genre, 0) + 1
 
     ligne_resume = 7
@@ -61,10 +61,10 @@ def exporter_excel(livres):
         feuille.append([
             livre.titre,
             livre.auteur,
-            livre.genre,
-            livre.date_parution,
-            livre.isbn,
-            livre.description,
+            livre.genre or "Genre non repertorié",
+            livre.date_parution or "Date inconnu",
+            livre.isbn or "ISBN non repertorié",
+            livre.description or "Description non repertorié",
             ""
         ])
 
@@ -84,10 +84,10 @@ def exporter_excel(livres):
                 feuille.add_image(image, f"G{ligne}")
                 row_height = max(row_height, image.height * 0.75)
             except Exception:
-                feuille[f"G{ligne}"] = "img non trouvé"
+                feuille[f"G{ligne}"] = "img non repertorie"
                 feuille[f"G{ligne}"].alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         else:
-            feuille[f"G{ligne}"] = "img non trouvé"
+            feuille[f"G{ligne}"] = "img non repertorie"
             feuille[f"G{ligne}"].alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
         feuille.row_dimensions[ligne].height = row_height
