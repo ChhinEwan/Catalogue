@@ -1,4 +1,6 @@
+import time
 import requests
+from requests.exceptions import RequestException
 from config import API_KEY
 from models import Livre
 
@@ -62,17 +64,51 @@ def normaliser_genres(categories):
     return ", ".join(resultats)
 
 
-def rechercher_livre(titre):
-    url = (
-        f"https://www.googleapis.com/books/v1/volumes"
-        f"?q={titre}&key={API_KEY}"
-    )
+def _rechercher_livre_langue(titre, langue):
+    url = "https://www.googleapis.com/books/v1/volumes"
+    params = {"q": titre, "maxResults": 20, "langRestrict": langue}
+    if API_KEY:
+        params["key"] = API_KEY
 
-    response = requests.get(url)
+    headers = {"User-Agent": "CatalogueBA/1.0"}
+    tentatives = 4
+    retryable_statuses = {429, 500, 502, 503, 504}
 
-    print(url)
-    print(response.status_code)
-    data = response.json()
+    for tentative in range(1, tentatives + 1):
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+        except RequestException as err:
+            if tentative == tentatives:
+                raise RuntimeError("Erreur réseau lors de la recherche Google Books. Vérifiez votre connexion.") from err
+            time.sleep(2 ** tentative)
+            continue
+
+        try:
+            data = response.json()
+        except ValueError:
+            if tentative == tentatives:
+                raise RuntimeError(f"Réponse invalide de l'API Google Books (statut {response.status_code}).")
+            time.sleep(2 ** tentative)
+            continue
+
+        if response.status_code == 200:
+            break
+
+        message = None
+        if isinstance(data, dict):
+            message = data.get("error", {}).get("message")
+
+        if response.status_code in retryable_statuses and tentative < tentatives:
+            time.sleep(2 ** tentative)
+            continue
+
+        if not message:
+            message = response.reason or "Erreur inconnue"
+
+        if response.status_code in retryable_statuses:
+            raise RuntimeError(f"Google Books temporairement indisponible. Réessayez plus tard. ({message} code {response.status_code})")
+
+        raise RuntimeError(f"Google Books API : {message} (code {response.status_code})")
 
     if "items" not in data:
         return []
@@ -91,20 +127,12 @@ def rechercher_livre(titre):
         date_parution = date_raw.split("-")[0] if date_raw else ""
         image = volume.get("imageLinks", {}).get("thumbnail", "")
 
-        '''
-        if image:
-            image = image.replace("zoom=1", "zoom=2")
-
-        '''    
-                # Récupération ISBN
         isbn = ""
-
         for identifiant in volume.get("industryIdentifiers", []):
             if identifiant["type"] == "ISBN_13":
                 isbn = identifiant["identifier"]
                 break
 
-        # Si pas d'ISBN-13, on cherche un ISBN-10
         if isbn == "":
             for identifiant in volume.get("industryIdentifiers", []):
                 if identifiant["type"] == "ISBN_10":
@@ -124,3 +152,27 @@ def rechercher_livre(titre):
         livres.append(livre)
 
     return livres
+
+
+def _fusionner_livres(livres):
+    vus = set()
+    result = []
+    for livre in livres:
+        cle = livre.isbn.strip() if livre.isbn else f"{livre.titre}:{livre.auteur}".lower().strip()
+        if not cle:
+            continue
+        if cle in vus:
+            continue
+        vus.add(cle)
+        result.append(livre)
+    return result
+
+
+def rechercher_livre(titre):
+    titre = (titre or "").strip()
+    if not titre:
+        return []
+
+    livres_fr = _rechercher_livre_langue(titre, "fr")
+    livres_en = _rechercher_livre_langue(titre, "en")
+    return _fusionner_livres(livres_fr + livres_en)

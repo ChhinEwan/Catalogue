@@ -66,7 +66,11 @@ def main():
         if choix_menu == "1":
             recherche = input("Quel livre cherchez-vous ? ")
 
-            livres = rechercher_livre(recherche)
+            try:
+                livres = rechercher_livre(recherche)
+            except Exception as err:
+                print("Erreur de recherche :", err)
+                continue
 
             if livres:
                 afficher_resultats_recherche(livres)
