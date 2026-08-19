@@ -33,7 +33,13 @@ class Tooltip:
 from api_google import rechercher_livre
 from database import creer_base, enregistrer_livre, lister_livres, livre_existe, supprimer_livre, vider_bibliotheque
 from excel_manager import exporter_excel
-from images_manager import telecharger_image, supprimer_image, creer_nom_image
+from images_manager import (
+    telecharger_image,
+    supprimer_image,
+    creer_nom_image,
+    creer_couverture_reliure,
+    obtenir_vignette_sans_image,
+)
 
 LINE_WIDTH = 70
 
@@ -94,14 +100,18 @@ class CatalogueGUI(tk.Tk):
         self.results_list.bind("<Leave>", lambda e: self.hide_tooltip())
         self.bind("<ButtonRelease-1>", self.on_drag_end)
 
+        self.reliure_var = tk.BooleanVar(value=False)
         self.add_button = ttk.Button(self.results_frame, text="Ajouter à la bibliothèque", command=self.add_selected_book)
         self.add_button.place(x=10, y=300)
 
+        self.reliure_checkbox = ttk.Checkbutton(self.results_frame, text="Reliure", variable=self.reliure_var)
+        self.reliure_checkbox.place(x=180, y=300)
+
         self.load_more_button = ttk.Button(self.results_frame, text="Charger plus", command=self.load_more_results, state="disabled")
-        self.load_more_button.place(x=220, y=300)
+        self.load_more_button.place(x=290, y=300)
 
         self.refresh_button = ttk.Button(self.results_frame, text="Actualiser la bibliothèque", command=self.refresh_library)
-        self.refresh_button.place(x=360, y=300)
+        self.refresh_button.place(x=390, y=300)
 
         self.library_frame = ttk.LabelFrame(self, text="Ma bibliothèque")
         self.library_frame.place(x=500, y=10, width=490, height=380)
@@ -261,10 +271,10 @@ class CatalogueGUI(tk.Tk):
             return
 
         try:
-            image = Image.open(chemin_image)
-            resample = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
-            image.thumbnail((120, 180), resample)
-            photo = ImageTk.PhotoImage(image)
+            with Image.open(chemin_image) as image:
+                resample = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS
+                image.thumbnail((120, 180), resample)
+                photo = ImageTk.PhotoImage(image.copy())
             self.cover_label.config(image=photo)
             self.cover_label.image = photo
         except Exception:
@@ -290,7 +300,16 @@ class CatalogueGUI(tk.Tk):
 
         enregistrer_livre(livre)
         nom_image = creer_nom_image(livre)
-        telecharger_image(livre.image, nom_image)
+        if self.reliure_var.get():
+            creer_couverture_reliure(nom_image, afficher_texte=True)
+        elif livre.image:
+            try:
+                telecharger_image(livre.image, nom_image)
+            except Exception:
+                pass
+        elif not os.path.exists(os.path.join("images", nom_image)):
+            obtenir_vignette_sans_image()
+        self.reliure_var.set(False)
         messagebox.showinfo("Ajouté", "Le livre a été ajouté à la bibliothèque.")
         self.refresh_library()
 
@@ -344,6 +363,8 @@ class CatalogueGUI(tk.Tk):
         chemin_image = os.path.join("images", nom_image)
         if not os.path.exists(chemin_image) and livre.image:
             telecharger_image(livre.image, nom_image)
+        if not os.path.exists(chemin_image) and not livre.image:
+            chemin_image = obtenir_vignette_sans_image()
         self.charger_visuel(chemin_image)
 
     # Tooltip helpers for showing truncated description previews
@@ -406,7 +427,16 @@ class CatalogueGUI(tk.Tk):
 
         enregistrer_livre(livre)
         nom_image = creer_nom_image(livre)
-        telecharger_image(livre.image, nom_image)
+        if self.reliure_var.get():
+            creer_couverture_reliure(nom_image, afficher_texte=True)
+        elif livre.image:
+            try:
+                telecharger_image(livre.image, nom_image)
+            except Exception:
+                pass
+        if not os.path.exists(os.path.join("images", nom_image)):
+            obtenir_vignette_sans_image()
+        self.reliure_var.set(False)
         messagebox.showinfo("Ajouté", "Le livre a été ajouté à la bibliothèque.")
         self.refresh_library()
 
@@ -439,13 +469,16 @@ class CatalogueGUI(tk.Tk):
         isbn_entry = ttk.Entry(dialog, width=30)
         isbn_entry.place(x=300, y=275)
 
-        ttk.Label(dialog, text="URL image (optionnel) :").place(x=10, y=310)
-        image_entry = ttk.Entry(dialog, width=60)
-        image_entry.place(x=10, y=335)
+        reliure_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(dialog, text="Reliure (couverture marron)", variable=reliure_var).place(x=10, y=310)
 
-        ttk.Label(dialog, text="Description (optionnel) :").place(x=10, y=370)
+        ttk.Label(dialog, text="URL image (optionnel) :").place(x=10, y=345)
+        image_entry = ttk.Entry(dialog, width=60)
+        image_entry.place(x=10, y=370)
+
+        ttk.Label(dialog, text="Description (optionnel) :").place(x=10, y=405)
         description_text = tk.Text(dialog, wrap="word", height=4, width=68)
-        description_text.place(x=10, y=395)
+        description_text.place(x=10, y=430)
 
         def save_new_book():
             titre = titre_entry.get().strip() or ""
@@ -472,12 +505,16 @@ class CatalogueGUI(tk.Tk):
 
             try:
                 enregistrer_livre(livre)
-                if image_url:
-                    nom_image = creer_nom_image(livre)
+                nom_image = creer_nom_image(livre)
+                if reliure_var.get():
+                    creer_couverture_reliure(nom_image, afficher_texte=True)
+                elif image_url:
                     try:
                         telecharger_image(image_url, nom_image)
                     except Exception:
                         pass
+                if not os.path.exists(os.path.join("images", nom_image)):
+                    obtenir_vignette_sans_image()
 
                 messagebox.showinfo("Créé", "Le livre a été créé et enregistré.")
                 dialog.destroy()
@@ -523,10 +560,11 @@ class CatalogueGUI(tk.Tk):
     def clear_library(self):
         if messagebox.askyesno("Vider la bibliothèque", "Voulez-vous vraiment supprimer tous les livres ?"):
             vider_bibliotheque()
-            for filename in os.listdir("images"):
-                chemin = os.path.join("images", filename)
-                if os.path.isfile(chemin):
-                    os.remove(chemin)
+            if os.path.isdir("images"):
+                for filename in os.listdir("images"):
+                    chemin = os.path.join("images", filename)
+                    if os.path.isfile(chemin):
+                        os.remove(chemin)
             self.refresh_library()
             self.details_text.configure(state="normal")
             self.details_text.delete("1.0", tk.END)
